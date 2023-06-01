@@ -5,6 +5,7 @@
 #include <PubSubClient.h>
 #include <SoftwareSerial.h>
 #include <DHT.h>
+#include <SD.h>
 
 // Wi-Fi credentials
 const char* WIFI_SSID = "Professor_RS";
@@ -26,8 +27,12 @@ const int PMS_RX_PIN = D3;  // PMS5003 RX pin connected to NodeMCU D5 (GPIO14)
 const int PMS_TX_PIN = D4;  // PMS5003 TX pin connected to NodeMCU D6 (GPIO12)
 
 // DHT pin definitions
-#define DHT_PIN D5
+#define DHT_PIN D2
 #define DHT_TYPE DHT11
+
+// SD pin definitions
+const int SD_CS_PIN = D8;  // Example: GPIO pin D8
+
 
 DHT dht(DHT_PIN, DHT_TYPE);
 
@@ -50,6 +55,12 @@ void setup() {
   Serial.begin(115200);
 
   dht.begin();
+
+  if (!SD.begin(SD_CS_PIN)) {
+    Serial.println("Failed to initialize SD card module");
+    return;
+  }
+  
 
   // Connect to Wi-Fi
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -137,6 +148,9 @@ void publishData(const PMS5003Data& data) {
   // Publish the data to the MQTT topic
   mqttClient.publish(MQTT_TOPIC, json.c_str());
   Serial.println("Published data: " + json);
+
+  //Write data to the SD card
+  writeDataToSDCard(json);
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -164,4 +178,15 @@ bool readPMSData(SoftwareSerial* serial, PMS5003Data* data) {
   }
 
   return false;
+}
+
+void writeDataToSDCard(const String& data) {
+  File dataFile = SD.open("/data.csv", FILE_WRITE);
+  if (dataFile) {
+    dataFile.println(data);
+    dataFile.close();
+    Serial.println("Data written to SD card");
+  } else {
+    Serial.println("Failed to open data file on SD card");
+  }
 }
