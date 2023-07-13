@@ -1,3 +1,4 @@
+
 //Sketch for uploading to mosquitto
 
 
@@ -6,13 +7,14 @@
 #include <SoftwareSerial.h>
 #include <DHT.h>
 #include <SD.h>
+#include <TimeLib.h>
 
 // Wi-Fi credentials
 const char* WIFI_SSID = "Professor_RS";
 const char* WIFI_PASSWORD = "11235813";
 
 // MQTT broker details
-const char* MQTT_SERVER = "10.7.15.49";
+const char* MQTT_SERVER = "35.226.208.187";
 const int MQTT_PORT = 1883;
 const char* MQTT_TOPIC = "your_topic";
 
@@ -43,6 +45,7 @@ struct PMS5003Data {
   uint16_t pm10;
   float temperature;
   float humidity;
+  char timeStamp;
 };
 
 PMS5003Data sensorData;
@@ -78,6 +81,9 @@ void setup() {
   // Connect to MQTT broker
   connectToMqttBroker();
   pmsSerial.begin(9600);
+
+  // Set the time zone to IST (5 hours and 30 minutes ahead of GMT/UTC)
+  configTime(0, 0, "pool.ntp.org");
   
 }
 
@@ -91,6 +97,8 @@ void loop() {
   // Publish data to MQTT broker
   //publishData();
 
+
+
   if (readPMSData(&pmsSerial, &sensorData)) {
     // Print sensor data to Serial monitor
 //    Serial.println("Sensor Data:");
@@ -102,9 +110,22 @@ void loop() {
 //    Serial.println(sensorData.pm10);
 //    Serial.println();
   }
-  publishData(sensorData);
+  
   //mqttClient.publish(MQTT_TOPIC, String(sensorData.temperature).c_str());
   //Serial.println("Published data: " + String(sensorData.pm2_5));
+
+  time_t now = time(nullptr);
+  now = now + 5 * 3600 + 30 * 60;
+
+  // Convert Unix timestamp to human-readable date and time
+  char buffer[30];
+  snprintf(buffer, sizeof(buffer), "%s", ctime(&now));
+
+  // Use the formatted date and time as needed
+  Serial.println(buffer);
+
+  publishData(sensorData);
+  writeDataToSDCard(String(buffer));
     
   delay(1000); // Adjust the delay as needed
 }
@@ -139,7 +160,8 @@ void reconnectToMqttBroker() {
 
 void publishData(const PMS5003Data& data) {
   // Convert the data to a JSON string
-  String json = "{\"pm1_0\":" + String(data.pm1_0) + ","
+  String json = 
+                "{\"pm1_0\":" + String(data.pm1_0) + ","
                 "\"pm2_5\":" + String(data.pm2_5) + ","
                 "\"pm10\":" + String(data.pm10) + ","
                 "\"temperature\":" + String(data.temperature) + ","
